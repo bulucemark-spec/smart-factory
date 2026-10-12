@@ -1,0 +1,1 @@
+SELECT CONCAT(TABLE_SCHEMA,'.',TABLE_NAME,'.',COLUMN_NAME) c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA IN ('smart_system','smart_wms','smart_mes','smart_qms') AND DATA_TYPE IN ('varchar','char','text','tinytext','mediumtext','longtext');

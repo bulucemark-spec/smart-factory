@@ -1,0 +1,165 @@
+name: smart-factory
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sf-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-smart123}
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_PASSWORD:-smart123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    container_name: sf-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: sf-minio
+    restart: unless-stopped
+    profiles: ["storage"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9002}:9000"
+      - "${MINIO_CONSOLE_PORT:-9003}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  system-service:
+    build:
+      context: ./backend
+      args:
+        MODULE: system-service
+    container_name: sf-system
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smart123}
+      JWT_SECRET: ${JWT_SECRET:-smart-factory-default-secret-key-please-change-in-prod-0123456789abcdef}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  wms-service:
+    build:
+      context: ./backend
+      args:
+        MODULE: wms-service
+    container_name: sf-wms
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smart123}
+      JWT_SECRET: ${JWT_SECRET:-smart-factory-default-secret-key-please-change-in-prod-0123456789abcdef}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  qms-service:
+    build:
+      context: ./backend
+      args:
+        MODULE: qms-service
+    container_name: sf-qms
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smart123}
+      JWT_SECRET: ${JWT_SECRET:-smart-factory-default-secret-key-please-change-in-prod-0123456789abcdef}
+      WMS_URL: http://wms-service:8082
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mes-service:
+    build:
+      context: ./backend
+      args:
+        MODULE: mes-service
+    container_name: sf-mes
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-smart123}
+      JWT_SECRET: ${JWT_SECRET:-smart-factory-default-secret-key-please-change-in-prod-0123456789abcdef}
+      WMS_URL: http://wms-service:8082
+      QMS_URL: http://qms-service:8084
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: ./backend
+      args:
+        MODULE: gateway
+    container_name: sf-gateway
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-smart-factory-default-secret-key-please-change-in-prod-0123456789abcdef}
+      SYSTEM_URL: http://system-service:8081
+      WMS_URL: http://wms-service:8082
+      MES_URL: http://mes-service:8083
+      QMS_URL: http://qms-service:8084
+      AI_URL: http://ai-service:8000
+    ports:
+      - "${GATEWAY_PORT:-8090}:8080"
+    depends_on:
+      system-service:
+        condition: service_started
+      wms-service:
+        condition: service_started
+      mes-service:
+        condition: service_started
+      qms-service:
+        condition: service_started
+
+  ai-service:
+    build: ./ai-service
+    container_name: sf-ai
+    restart: unless-stopped
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+
+  frontend:
+    build: ./frontend
+    container_name: sf-frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    depends_on:
+      gateway:
+        condition: service_started
+
+volumes:
+  mysql-data:
+  minio-data:

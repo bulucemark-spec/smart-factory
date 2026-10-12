@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>智能工厂 MES/WMS/QMS 系统 — 文档包</title>
+<style>
+  body{font-family:'Microsoft YaHei',sans-serif;max-width:860px;margin:32px auto;padding:0 24px;color:#24292f;line-height:1.7}
+  h1{border-bottom:2px solid #0969da;padding-bottom:8px}
+  h2{margin-top:28px;border-bottom:1px solid #d8dee4;padding-bottom:6px}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid #d0d7de;padding:8px 12px;text-align:left}
+  th{background:#f6f8fa}
+  a{color:#0969da;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .tag{display:inline-block;background:#ddf4ff;color:#0969da;border-radius:12px;padding:2px 10px;font-size:.85em;margin-right:6px}
+</style>
+</head>
+<body>
+<h1>智能工厂 MES/WMS/QMS 系统 · 文档包</h1>
+<p>项目位置：<code>E:\code\smart-factory</code> ｜ 生成时间：2026-10-12 ｜ 共 9 个文件</p>
+
+<h2>一、使用与运维（README）</h2>
+<table>
+<tr><th>文件</th><th>说明</th><th>打开</th></tr>
+<tr><td>README.md / README.html</td><td>系统组成、端口、快速启动、大模型配置、演示账号、业务闭环演示路径、常见问题</td><td><a href="README.html">HTML 阅读版</a> · <a href="README.md">Markdown 原文</a></td></tr>
+</table>
+
+<h2>二、设计与开发文档</h2>
+<table>
+<tr><th>文件</th><th>说明</th><th>打开</th></tr>
+<tr><td>智能工厂MES-WMS-QMS系统需求规格说明书.docx</td><td>原始需求规格说明书（用户输入，51.7 KB）</td><td>Word 直接打开</td></tr>
+<tr><td>01-架构设计与需求完善.md / .html</td><td>需求完善、总体架构（微服务/网关/Feign/状态机）、四库设计、API 一览、二期演进</td><td><a href="01-架构设计与需求完善.html">HTML 阅读版</a> · <a href="01-架构设计与需求完善.md">Markdown 原文</a></td></tr>
+<tr><td>02-WBS任务拆分与里程碑.md / .html</td><td>WBS 任务拆分（12 项）、里程碑计划、验收标准</td><td><a href="02-WBS任务拆分与里程碑.html">HTML 阅读版</a> · <a href="02-WBS任务拆分与里程碑.md">Markdown 原文</a></td></tr>
+<tr><td>03-全方位测试报告.md / .html</td><td>89 个自动化用例全通过；测试范围、结果、发现并修复的问题、改进建议</td><td><a href="03-全方位测试报告.html">HTML 阅读版</a> · <a href="03-全方位测试报告.md">Markdown 原文</a></td></tr>
+</table>
+
+<h2>三、配套工程文件（位于 E:\code\smart-factory）</h2>
+<table>
+<tr><th>路径</th><th>说明</th></tr>
+<tr><td>docker-compose.yml + .env.example</td><td>一键编排 9 个容器；环境变量模板</td></tr>
+<tr><td>db/init/*.sql</td><td>四库 DDL 与种子数据（01 建库、02 system、03 wms、04 mes、05 qms）</td></tr>
+<tr><td>backend/</td><td>6 个 Maven 模块：smart-common、system、wms、mes、qms、gateway（Java 17 / Spring Boot 3）</td></tr>
+<tr><td>ai-service/</td><td>FastAPI RAG 知识助手 + 质量根因分析（内置知识库，无 Key 自动 Mock）</td></tr>
+<tr><td>frontend/</td><td>Vue3 + Element Plus 前端（登录 + 核心业务闭环页面）</td></tr>
+<tr><td>tests/</td><td>可复用自动化测试套件（14-20 阶段脚本 + TestKit 框架 + results.json）</td></tr>
+</table>
+
+<h2>四、演示账号</h2>
+<table>
+<tr><th>角色</th><th>用户名</th><th>密码</th></tr>
+<tr><td>系统管理员</td><td>admin</td><td>admin123</td></tr>
+<tr><td>计划员</td><td>planner</td><td>planner123</td></tr>
+<tr><td>仓管员</td><td>warehouse</td><td>warehouse123</td></tr>
+<tr><td>检验员</td><td>inspector</td><td>inspector123</td></tr>
+<tr><td>操作员</td><td>operator</td><td>operator123</td></tr>
+</table>
+<p style="margin-top:24px;color:#57606a;font-size:.9em">访问入口：前端 http://localhost:8088 ｜ 网关 http://localhost:8090</p>
+</body>
+</html>

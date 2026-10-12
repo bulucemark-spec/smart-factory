@@ -1,0 +1,286 @@
+<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>01 架构设计与需求完善</title><style>
+    body{font-family:'Microsoft YaHei',Segoe UI,sans-serif;line-height:1.75;max-width:960px;margin:24px auto;padding:0 24px;color:#24292f;background:#fff}
+    h1{border-bottom:2px solid #0969da;padding-bottom:8px;font-size:1.9em}
+    h2{border-bottom:1px solid #d8dee4;padding-bottom:6px;margin-top:28px;font-size:1.5em}
+    h3{margin-top:22px;font-size:1.25em}
+    table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.95em}
+    th,td{border:1px solid #d0d7de;padding:7px 12px;text-align:left}
+    th{background:#f6f8fa}
+    pre{background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:14px;overflow-x:auto;font-size:.9em}
+    code{background:#eff1f3;border-radius:4px;padding:2px 5px;font-family:Consolas,monospace}
+    pre code{background:none;padding:0}
+    blockquote{border-left:4px solid #0969da;margin:12px 0;padding:6px 14px;color:#57606a;background:#f6f8fa}
+    ul,ol{padding-left:26px}
+    a{color:#0969da}
+    img{max-width:100%}
+    </style></head><body><h1>智能工厂 MES/WMS/QMS —— 架构设计与需求完善说明书</h1>
+
+<blockquote>版本：V2.1（基于《需求规格说明书 V2.0》评审稿的架构落地版）<br>编制：智能制造研发架构组<br>配套代码：本仓库 <code>smart-factory/</code>，Docker Compose 一键启动<br>定位：<strong>先交付可端到端运行的「核心闭环垂直切片」，再按域迭代为完整微服务</strong></blockquote>
+
+<hr>
+
+<h2>1. 需求评审结论</h2>
+
+<h3>1.1 总体评价</h3>
+<p>V2.0 文档业务覆盖完整、技术选型主流、非功能指标明确，已具备进入开发的条件。但作为<strong>评审稿</strong>，它描述的是"目标态全景"，缺少从 0 到 1 的<strong>落地路径、领域契约与一致性设计</strong>。若直接按功能清单平行开工，极易出现：服务边界混乱、跨服务联调困难、AI 场景等不到数据、试点期运维成本过高。</p>
+
+<h3>1.2 必须补强的 Gap 清单（本方案逐条闭合）</h3>
+
+<table><thead><tr><th>#</th><th>Gap（V2.0 现状）</th><th>风险</th><th>本方案闭合方式</th></tr></thead><tbody>
+<tr><td>G1</td><td>有功能清单，无领域模型/ER、无聚合边界</td><td>按"表/控制器"拆库，服务耦合</td><td>§3 服务边界 + §4 领域模型 + <code>db/init</code> 四库 DDL</td></tr>
+<tr><td>G2</td><td>无 API 契约、无统一响应/错误码规范</td><td>前后端、服务间联调返工</td><td>§7 API 契约规范 + common 包统一封装</td></tr>
+<tr><td>G3</td><td>核心状态机未形式化（工单/检验/库存/NCR）</td><td>状态跳变、数据脏</td><td>§5 状态机（枚举 + 显式流转校验）</td></tr>
+<tr><td>G4</td><td>"报工→扣库存→质检"一致性方案缺失</td><td>账实不符、超扣</td><td>§6 闭环时序 + §8 一致性/幂等设计</td></tr>
+<tr><td>G5</td><td>7 个 AI 场景未排序、未列数据前置条件</td><td>AI 上线等数据、ROI 低</td><td>§9 AI 设计 + 优先级矩阵；本次落地 RAG + 根因</td></tr>
+<tr><td>G6</td><td>微服务粒度过细，试点期 K8s/中间件运维重</td><td>项目被基础设施拖垮</td><td>§2 两阶段架构：模块化/轻量服务起步，预留演进</td></tr>
+<tr><td>G7</td><td>里程碑 P2/P3 第 7 月重叠，缺 DoD/验收</td><td>交付节点冲突、无法验收</td><td>见《02-WBS》迭代计划与 DoD</td></tr>
+<tr><td>G8</td><td>非功能指标无验证手段</td><td>指标流于口号</td><td>§11 指标—验证方法映射</td></tr>
+<tr><td>G9</td><td>缺灰度/回滚/数据迁移校验</td><td>上线风险高</td><td>§12 演进路线 + 《02-WBS》上线检查单</td></tr>
+<tr><td>G10</td><td>RAG 知识库治理、引用与安全边界缺失</td><td>幻觉、泄密</td><td>§9.3 RAG 设计（强制引用、无据转人工）</td></tr>
+</tbody></table>
+
+<h3>1.3 范围裁剪原则（本次垂直切片）</h3>
+<ul><li><strong>做透一条链</strong>：<code>登录/权限 → 主数据 → 到货收货 → IQC → 上架 → 工单/领料 → 开工报工 → 完工入库 → OQC → 销售出库</code>，外加 <code>NCR→MRB→CAPA</code> 不合格闭环与 <code>RAG 助手/根因分析</code>。</li><li><strong>做浅但留口</strong>：APS（先规则排产，遗传/强化学习留口）、SPC（先数据采集+控制图/Cpk 计算，八大判异留口）、OEE（先可用率/性能/质量计算）、盘点/Andon（建表与基础接口）。</li><li><strong>暂不做</strong>：PLC 控制、TMS、LIMS、大模型训练、完整 K8s 双活（明确为后续迭代）。</li></ul>
+
+<hr>
+
+<h2>2. 目标架构与两阶段演进</h2>
+
+<h3>2.1 本次交付架构（试点 / 可一键运行）</h3>
+
+<pre><code>                          ┌──────────────────────────────────────────┐
+   浏览器/PDA/触屏  ─────► │  frontend (Nginx, Vue3 静态资源 + /api 反代) │
+                          └───────────────┬──────────────────────────┘
+                                          │ /api/**
+                                ┌─────────▼──────────┐
+                                │  gateway (8080)     │  Spring Cloud Gateway
+                                │  JWT 校验 / CORS    │  路由 + 全局过滤器
+                                │  透传 X-User-* 头    │
+                                └──┬───┬───┬───┬───┬──┘
+            ┌──────────────┬───────┘   │   │   │   └────────────────┐
+            ▼              ▼           ▼   ▼   ▼                    ▼
+   ┌────────────────┐ ┌──────────┐ ┌──────────────┐ ┌──────────────────────┐
+   │ system-service │ │mes-service│ │ wms-service  │ │ qms-service          │
+   │ 8081           │ │ 8083      │ │ 8082         │ │ 8084                 │
+   │ 认证/组织/主数据 │ │ 工单/报工  │ │ 收货/库存/出库 │ │ 检验/NCR/CAPA/SPC    │
+   └───────┬────────┘ └────┬──────┘ └──────┬───────┘ └──────────┬───────────┘
+           │   OpenFeign（按 docker 服务名直连，箭头为主要编排方向）        │
+           │   mes→wms / mes→qms / wms→qms / qms→wms                     │
+           ▼               ▼               ▼                    ▼
+                  ┌──────────────── 数据与中间件 ────────────────┐
+                  │ MySQL8(system/mes/wms/qms 四库)  Redis7  MinIO │
+                  └───────────────────────────────────────────────┘
+            ┌──────────────────────┐
+            │  ai-service (8000)    │  Python FastAPI
+            │  RAG 问答 / 根因分析   │  → OpenAI 兼容云端 LLM（无 key 降级 Mock）
+            └──────────────────────┘</code></pre>
+
+<p><strong>与 V2.0 七层架构的对应关系</strong>：展现层（frontend）、接入层（gateway）、业务微服务层（4 个 Spring Boot 服务）、AI 服务层（ai-service）、数据层（MySQL/Redis/MinIO）。IoT 接入层、完整微服务治理（Nacos/Sentinel/Seata）、RocketMQ、Milvus、ClickHouse、K8s <strong>在试点期裁剪，二期引入</strong>（见 §12）。</p>
+
+<h3>2.2 为什么试点期"做减法"是专业选择</h3>
+<ul><li><strong>Nacos/注册发现</strong>：Compose 内服务名固定、网络稳定，用配置化 URL + Feign 直连即可；引入 Nacos 增加约 1GB 内存与启动顺序依赖，试点期收益为零。</li><li><strong>RocketMQ/Seata</strong>：核心链路用"本地事务 + Feign 编排 + 状态机 + 幂等 + 补偿"即可正确演示；MQ 事务消息与 Saga 是高并发/多编排方下的生产增强，二期按需引入。</li><li><strong>Milvus/ClickHouse</strong>：RAG 在文档量级 < 10 万切片时，TF-IDF/向量内存检索足够；报表在试点数据量下 MySQL 聚合即可。避免"用大炮打蚊子"。</li><li>所有被裁剪组件均在代码中<strong>预留扩展点</strong>（接口抽象、配置开关），二期替换不改业务代码。</li></ul>
+
+<h3>2.3 二期目标态（与文档一致）</h3>
+<p>模块化/轻量服务 → 完整 Spring Cloud（Nacos+Sentinel+Seata+Gateway）+ RocketMQ 事件驱动 + Milvus/ClickHouse/TimescaleDB + EMQX/OPC UA IoT 接入 + K8s/Helm/ArgoCD + GPU 推理。</p>
+
+<hr>
+
+<h2>3. 服务划分与边界</h2>
+
+<table><thead><tr><th>服务</th><th>端口</th><th>数据库</th><th>核心职责</th><th>拥有的核心数据</th></tr></thead><tbody>
+<tr><td>gateway</td><td>8080</td><td>—</td><td>统一入口、JWT 校验、路由、CORS、限流（二期）</td><td>无</td></tr>
+<tr><td>system-service</td><td>8081</td><td>smart_system</td><td>认证授权、组织/用户/角色、<strong>主数据 MDM</strong>（物料/供应商/BOM/工艺路线/工作中心）</td><td>sys_<em>、mdm_</em></td></tr>
+<tr><td>wms-service</td><td>8082</td><td>smart_wms</td><td>仓库/库位、ASN/收货、上架、库存、波次拣货、成品入库、销售出库</td><td>wms_*</td></tr>
+<tr><td>mes-service</td><td>8083</td><td>smart_mes</td><td>工位建模、工单全周期、排产、领料、报工、追溯谱系、OEE</td><td>mes_*</td></tr>
+<tr><td>qms-service</td><td>8084</td><td>smart_qms</td><td>检验标准、IQC/IPQC/OQC、SPC、NCR/MRB/CAPA、供应商质量/8D</td><td>qms_*</td></tr>
+<tr><td>ai-service</td><td>8000</td><td>本地持久化</td><td>RAG 问答、质量根因分析（LLM 编排）</td><td>文档切片/索引</td></tr>
+</tbody></table>
+
+<p><strong>边界纪律</strong>：</p>
+<ol><li>每个服务只读写自己的库，<strong>禁止跨库 JOIN</strong>；关联数据通过 Feign 获取或冗余快照（带 <code>_name</code> 冗余字段，主数据变更走事件/对账）。</li><li>服务间只传递 <strong>ID 与必要快照</strong>，不暴露内部实体。</li><li>对外统一走 gateway 的 <code>/api/&lt;strong&gt;</code>，服务间走 <code>/internal/&lt;/strong&gt;</code>（仅容器网络可达，不被 gateway 暴露）。</li></ol>
+
+<hr>
+
+<h2>4. 领域模型（核心聚合）</h2>
+
+<blockquote>完整字段以 <code>db/init/*.sql</code> 为准，此处描述聚合与关系。</blockquote>
+
+<h3>4.1 system（基础平台 + 主数据）</h3>
+<ul><li><strong>组织聚合</strong>：Org（集团-工厂-车间-产线-班组，自关联 parent_id，物化路径 path）。</li><li><strong>身份聚合</strong>：User ↔ UserRole ↔ Role ↔ RolePermission ↔ Permission（RBAC + 数据权限维度 org_id）。</li><li><strong>物料聚合</strong>：Material（编码、分类、单位、批次/效期开关、ABC、重量）。</li><li><strong>供应商聚合</strong>：Supplier（资质、等级 grade、合格率、PPM）。</li><li><strong>BOM 聚合</strong>：Bom（产品 + 版本 + 状态） 1—n BomItem（子物料、用量、序号）。</li><li><strong>工艺聚合</strong>：WorkCenter（工作中心/产能）；Routing（产品+版本）1—n RoutingOperation（工序序号、工作中心、标准工时、是否质检点 CTQ）。</li></ul>
+
+<h3>4.2 wms（仓储）</h3>
+<ul><li><strong>仓库聚合</strong>：Warehouse 1—n Zone 1—n Location（坐标 x/y、容量、类型、状态）。</li><li><strong>收货聚合</strong>：Asn 1—n AsnItem；Receipt 1—n ReceiptItem（实收批次、数量）。</li><li><strong>库存聚合</strong>：Inventory（库位+物料+批次+状态 唯一）；批次状态机见 §5.4。</li><li><strong>任务聚合</strong>：PutawayTask（上架）；PickWave 1—n PickTask（拣货，关联工单/出库单）。</li><li><strong>出库聚合</strong>：Outbound 1—n OutboundItem（销售出库/领料）。</li></ul>
+
+<h3>4.3 mes（制造执行）</h3>
+<ul><li><strong>工厂聚合</strong>：Workstation（工位，绑定工作中心/产线）。</li><li><strong>工单聚合</strong>：WorkOrder（产品、BOM、工艺路线、计划/完工/不良数量、状态、计划起止）。</li><li><strong>报工聚合</strong>：WorkReport（工单、工序、工位、操作员、合格/不良/报废、不良代码）。</li><li><strong>投料聚合</strong>：MaterialTxn（工单、物料、批次、数量、领/退）。</li><li><strong>谱系聚合</strong>：Genealogy（成品批次 parent_batch ↔ 物料批次 child_batch、工单、数量）。</li></ul>
+
+<h3>4.4 qms（质量）</h3>
+<ul><li><strong>标准聚合</strong>：InspectionStandard（物料+供应商+类型+AQL 水平）1—n InspectionItem（项目、上下限、量具、CTQ）。</li><li><strong>检验聚合</strong>：InspectionTask（类型、来源单号、物料/批次、样本数、状态）1—n InspectionResult（项目、实测值、判定）。</li><li><strong>不合格聚合</strong>：Ncr（来源、批次、数量、缺陷、等级、处置方式、状态）1—1/1—n Capa（根因、纠正措施、责任人、期限、验证）。</li><li><strong>SPC 聚合</strong>：SpcRecord（特性、值、时间）→ 控制图统计量 / Cpk。</li></ul>
+
+<hr>
+
+<h2>5. 核心状态机（显式校验，禁止非法跳变）</h2>
+
+<h3>5.1 工单 WorkOrder</h3>
+<pre><code>CREATED 已创建
+  └─release()► RELEASED 已下发 ──pick()► PICKED 已拣料
+                   │                    └─start()► STARTED 开工
+                   │                                 └─report()► RUNNING 报工中
+                   │                                                └─complete()► COMPLETED 完工
+                   │                                                                 └─stockIn()► STOCKED 已入库 ─close()► CLOSED 已关闭
+                   └──────────────────────────────────────（任意未完工）cancel()► CANCELLED</code></pre>
+<p>返工/试产/外协为 <code>type</code> 维度，复用同一状态机。</p>
+
+<h3>5.2 检验任务 InspectionTask</h3>
+<pre><code>PENDING 待检 ─submit(结果)► JUDGING 判定中
+   ├─全部合格► QUALIFIED 合格
+   └─存在不合格► UNQUALIFIED 不合格 ──（NCR/MRB 处置后）► DISPOSED 已处置</code></pre>
+<p>判定规则：任一 CTQ 项实测值超出 [LSL, USL] 即不合格；非 CTQ 按 AQL 不合格数阈值。</p>
+
+<h3>5.3 NCR</h3>
+<pre><code>OPEN 待MRB ─MRB评审► REVIEWED 已评审(处置方式) ─执行► IN_PROGRESS 处置中
+   └─CAPA完成且验证有效► CLOSED 已关闭；VERIFY_FAIL 验证不通过 → 回 IN_PROGRESS</code></pre>
+<p>处置方式 disposition ∈ {RETURN 退货, SORT 挑选, REWORK 返工, CONCESSION 让步, SCRAP 报废}。</p>
+
+<h3>5.4 库存批次状态 Inventory.status</h3>
+<pre><code>PENDING 待检 ─IQC合格+上架► QUALIFIED 合格 ──拣货/出库►（数量扣减）
+PENDING       ─IQC不合格► FROZEN 冻结 ─MRB► {退货出库/报废 SCRAPPED/解冻回 QUALIFIED(让步)}
+QUALIFIED     ─质量异常► FROZEN</code></pre>
+<p>FIFO：合格库存按 <code>expiry_date ASC, production_date ASC, id ASC</code> 推荐出库批次。</p>
+
+<hr>
+
+<h2>6. 核心闭环时序（Feign 编排链）</h2>
+
+<blockquote>约定：<code>→</code> 为同步 Feign/HTTP；每个跨服务写操作都要求<strong>幂等键</strong>与<strong>状态前置校验</strong>。</blockquote>
+
+<ol><li><strong>收货 → IQC</strong></li></ol>
+<p>   <code>WMS 收货登记</code>（写 Receipt + 待检 Inventory，本地事务） → <code>QMS /internal/iqc/tasks</code>（按物料+供应商匹配检验方案，建 IQC 任务，PENDING）。</p>
+<ol><li><strong>IQC 判定 → 上架/冻结</strong></li></ol>
+<p>   <code>QMS 录入结果并判定</code> → 合格：<code>WMS /internal/inventory/qualified</code>（生成 PutawayTask，库存待上架） → 不合格：<code>WMS /internal/inventory/freeze</code>（冻结批次）+ QMS 建 NCR。</p>
+<ol><li><strong>上架</strong>：WMS 执行 PutawayTask，库存迁至正式库位、状态 QUALIFIED。</li><li><strong>工单下发 → 领料</strong></li></ol>
+<p>   <code>MES release</code>（CREATED→RELEASED，按 BOM 展开） → <code>WMS /internal/pick-waves</code>（按工单 BOM 生成领料波次/拣货任务，FIFO 预占批次）。</p>
+<ol><li><strong>拣货 → 线边交接</strong></li></ol>
+<p>   WMS 执行拣货（扣减/预占合格库存）；<code>MES /work-orders/{id}/receive-materials</code> → 拉取 WMS 拣货结果，写 MaterialTxn + Genealogy(child 批次)，工单 PICKED→STARTED。</p>
+<ol><li><strong>开工报工</strong>：MES 写 WorkReport，累加工单合格/不良/报废；不良可触发 QMS IPQC/NCR。</li><li><strong>完工 → 成品入库 + OQC</strong></li></ol>
+<p>   <code>MES complete</code>（→STOCKED 前）→ <code>WMS /internal/finished-goods/inbound</code>（成品仓入库，成品批次，写 Genealogy parent） → <code>QMS /internal/oqc/tasks</code>（OQC 检验）。</p>
+<ol><li><strong>OQC 判定</strong>：合格 → WMS 成品批次放行 QUALIFIED；不合格 → 冻结 + NCR。</li><li><strong>销售出库</strong>：WMS 建 Outbound（FIFO 推荐批次）→ 拣货复核 → 扣减库存 → 发运签收。</li><li><strong>不合格闭环</strong>：NCR → MRB（处置方式）→ 联动 WMS（退货出库/报废/解冻）→ CAPA（措施/责任人/期限）→ 验证 → 关闭、沉淀知识库。</li></ol>
+
+<hr>
+
+<h2>7. API 契约规范</h2>
+
+<h3>7.1 统一响应</h3>
+<pre><code>{ "code": 0, "message": "success", "data": { }, "traceId": "..." }</code></pre>
+<ul><li>分页：<code>data = { "records": [], "total": 0, "page": 1, "size": 20 }</code></li><li><code>code=0</code> 成功；非 0 见错误码表。HTTP 状态：200 承载业务结果，4xx/5xx 表达协议/系统错误。</li></ul>
+
+<h3>7.2 错误码（分段）</h3>
+<table><thead><tr><th>段</th><th>含义</th></tr></thead><tbody>
+<tr><td>0</td><td>成功</td></tr>
+<tr><td>1000-1999</td><td>通用（参数/认证/权限/资源不存在/冲突/系统）</td></tr>
+<tr><td>2000-2999</td><td>system / 主数据</td></tr>
+<tr><td>3000-3999</td><td>wms</td></tr>
+<tr><td>4000-4999</td><td>mes</td></tr>
+<tr><td>5000-5999</td><td>qms</td></tr>
+<tr><td>6000-6999</td><td>ai</td></tr>
+</tbody></table>
+
+<p>典型：1001 未认证、1003 无权限、1004 参数错误、1005 资源不存在、1009 状态非法/冲突、3011 库存不足、3012 批次冻结、4011 工单状态非法、5011 检验项超限。</p>
+
+<h3>7.3 鉴权</h3>
+<ul><li>登录：<code>POST /api/auth/login</code>（username/password）→ <code>accessToken</code>（JWT）。</li><li>后续请求头：<code>Authorization: Bearer &lt;token&gt;</code>。</li><li>gateway 校验 JWT，透传 <code>X-User-Id / X-User-Name / X-User-Org / X-User-Roles</code>；下游通过 UserContext 读取。</li><li>放行清单：<code>/api/auth/login</code>、<code>/actuator/health</code>、静态资源。</li></ul>
+
+<h3>7.4 命名与方法</h3>
+<ul><li>RESTful 资源复数；查询用 <code>GET</code> + query；创建 <code>POST</code>；更新 <code>PUT</code>；状态动作用 <code>POST /resource/{id}/{action}</code>（如 <code>/work-orders/12/release</code>）。</li><li>时间统一 ISO-8601；金额/数量用明确单位与精度；所有列表支持 <code>page/size/keyword/排序</code>。</li></ul>
+
+<hr>
+
+<h2>8. 数据一致性、幂等与事务</h2>
+
+<ul><li><strong>本地事务</strong>：单服务内多表写用 <code>@Transactional</code>，保证服务内强一致（如收货写 Receipt+Inventory）。</li><li><strong>跨服务最终一致</strong>：Feign 编排 + 状态机；每步<strong>先校验前置状态</strong>，失败抛业务错误并返回可读原因；关键写接口支持<strong>幂等键</strong>（<code>requestId</code>/业务单号唯一，重复请求返回首次结果）。</li><li><strong>防超扣/超发</strong>：库存扣减用条件更新 <code>UPDATE ... SET qty=qty-? WHERE id=? AND qty&gt;=?</code>，影响行数=0 即库存不足（3011）。</li><li><strong>冻结优先</strong>：质量异常先冻结（FROZEN）再走流程，冻结批次不参与 FIFO 与可用量计算。</li><li><strong>冗余快照对账</strong>：跨域展示字段（物料名、供应商名）以冗余 <code>_name</code> 保存；二期由主数据变更事件刷新 + 定时对账。</li><li><strong>二期升级</strong>：引入 RocketMQ 事务消息（报工/扣库存原子性）+ Seata AT/Saga（长流程）+ 本地消息表（可靠投递）+ 死信与人工补偿台。</li></ul>
+
+<hr>
+
+<h2>9. AI 服务设计</h2>
+
+<h3>9.1 场景优先级矩阵（数据就绪度 × ROI × 难度）</h3>
+
+<table><thead><tr><th>场景</th><th>业务 ROI</th><th>数据就绪度</th><th>落地难度</th><th>建议批次</th></tr></thead><tbody>
+<tr><td><strong>RAG 知识助手</strong></td><td>高（减少问询/培训成本）</td><td>高（SOP/手册已存在）</td><td>低</td><td><strong>本次（Iteration 0）</strong></td></tr>
+<tr><td><strong>质量根因分析</strong></td><td>高（缩短排查）</td><td>中（需结构化关联）</td><td>中</td><td><strong>本次（LLM+检索先行）</strong></td></tr>
+<tr><td>OCR 仪表读数</td><td>中</td><td>高</td><td>低</td><td>Iteration 1</td></tr>
+<tr><td>需求/库存预测</td><td>高</td><td>中（需历史销量）</td><td>中</td><td>Iteration 1-2</td></tr>
+<tr><td>AI 视觉缺陷检测</td><td>很高</td><td><strong>低（需大量标注）</strong></td><td>高</td><td>Iteration 2（先标注体系/小样本）</td></tr>
+<tr><td>预测性维护</td><td>高</td><td><strong>低（需传感器历史）</strong></td><td>高</td><td>Iteration 2-3（IoT 先行）</td></tr>
+<tr><td>智能排产(RL/GA)</td><td>中</td><td>中</td><td>高</td><td>Iteration 3（规则 APS 稳定后）</td></tr>
+</tbody></table>
+
+<blockquote>关键洞察：<strong>视觉检测与预测性维护不是算法问题，是数据问题</strong>。必须先建标注/采集体系与 IoT 历史积累，否则模型无米下炊。本次先交付不依赖训练数据、ROI 明确的 RAG 与根因分析。</blockquote>
+
+<h3>9.2 大模型接入（OpenAI 兼容，云端优先）</h3>
+<ul><li>ai-service 通过环境变量配置，适配 <strong>DeepSeek / 通义千问 / 智谱 GLM / Kimi / 本地 vLLM·Ollama（OpenAI 兼容口）</strong> 等：</li><li><code>LLM_BASE_URL</code>（如 <code>https://api.deepseek.com</code>）</li><li><code>LLM_API_KEY</code>（你的密钥）</li><li><code>LLM_MODEL</code>（如 <code>deepseek-chat</code>）</li><li>仅调用标准 <code>POST {BASE_URL}/v1/chat/completions</code>（代码内自动兼容已含 <code>/v1</code> 与不含 <code>/v1</code> 的 base_url）。</li><li><strong>未配置 key 时自动降级 Mock</strong>：返回检索到的片段拼接与"当前为离线演示应答"，保证系统可完整离线演示与联调。</li><li>安全：工艺机密默认走内网/本地模型或企业合规网关；云端仅发送检索片段与问题，不回传全量数据库。</li></ul>
+
+<h3>9.3 RAG 设计（防幻觉、可溯源）</h3>
+<ul><li>知识源：SOP、设备手册、工艺文件、质量案例、客诉 8D（放 <code>ai-service/knowledge/</code>，启动时切片）。</li><li>切片：按标题/段落分块（含 overlap），保留 <code>来源文档 + 章节</code> 元数据。</li><li>检索：本次用 <strong>TF-IDF + 余弦相似度</strong>（零模型下载、稳定可离线）；二期替换为 <code>bge-m3</code> 向量 + <strong>Milvus</strong>（接口已抽象 <code>Retriever</code>）。</li><li>生成：系统提示词强制"<strong>只依据给定片段回答，逐条标注 [来源]，片段不足或无关时明确说不知道并转人工</strong>"。</li><li>回流：记录提问、检索命中、回答、点赞/点踩（bad case），供知识库与模型迭代（AI 可观测）。</li></ul>
+
+<h3>9.4 根因分析</h3>
+<p>输入：现象（如 SPC 报警、不良率突增）+ 可选上下文（时段/设备/批次/人员）。检索历史案例与工艺知识，LLM 按 <strong>5M1E（人/机/料/法/环/测）鱼骨结构</strong>输出"可能原因排序 + 建议验证方法 + 参考案例"，同样强制引用、保留人工确认。</p>
+
+<hr>
+
+<h2>10. 安全设计（对标等保三级，试点期落地核心项）</h2>
+<ul><li>身份：JWT（短期 accessToken + 密钥轮换预留），BCrypt 存储密码（强度 10）。</li><li>授权：RBAC + 数据权限（按工厂/车间/仓库 org 维度过滤），按钮/字段权限预留。</li><li>传输：容器内/对外 TLS（试点 HTTP，生产由 Ingress/网关终结 TLS1.2+）。</li><li>审计：关键增删改留痕（操作人、时间、模块、前后值摘要），日志留存策略二期对接 ELK。</li><li>隔离：业务服务 <code>/internal/**</code> 不对外暴露；MinIO/MySQL/Redis 不直接映射公网端口（仅本地调试映射）。</li><li>密钥：所有口令/密钥走环境变量/<code>.env</code>，不入库不入 Git（提供 <code>.env.example</code>）。</li></ul>
+
+<hr>
+
+<h2>11. 非功能指标 → 验证方法</h2>
+
+<table><thead><tr><th>指标（V2.0）</th><th>本次设计支撑</th><th>验证方法</th></tr></thead><tbody>
+<tr><td>页面 ≤2s / PDA ≤1s</td><td>单库轻查询、Redis 缓存、前端按需加载</td><td>Lighthouse / 接口 P95 统计（SkyWalking 二期）</td></tr>
+<tr><td>报表 ≤5s</td><td>试点 MySQL 聚合（二期 ClickHouse）</td><td>造数后 EXPLAIN + 计时</td></tr>
+<tr><td>500 在线 / PDA 100 TPS</td><td>无状态服务，可水平扩容</td><td>JMeter/wrk 压测脚本（二期）</td></tr>
+<tr><td>IoT 10000 TPS</td><td>二期 EMQX 承载</td><td>EMQX 基准 + 边缘压测</td></tr>
+<tr><td>年可用率 99.9%</td><td>无状态多副本 + 健康检查/自动重启</td><td>compose <code>restart</code>，K8s 多副本（二期）</td></tr>
+<tr><td>库存准确率 ≥99.5%</td><td>批次状态机 + 扫码防错 + 条件扣减 + 盘点对账</td><td>循环盘点差异统计</td></tr>
+<tr><td>视觉 ≤500ms / mAP≥95%</td><td>二期 GPU+ONNX/Triton</td><td>批量推理计时 + 混淆矩阵/mAP</td></tr>
+<tr><td>RPO≤15min/RTO≤1h</td><td>二期 binlog 增量 + 演练</td><td>备份恢复演练记录</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>12. 技术债与演进路线（何时引入被裁剪组件）</h2>
+
+<table><thead><tr><th>触发条件</th><th>引入组件</th><th>替换/新增内容</th></tr></thead><tbody>
+<tr><td>服务数 ≥5、实例需动态扩缩</td><td>Nacos（注册/配置）</td><td>Feign 由固定 URL 改为服务发现；配置集中化</td></tr>
+<tr><td>跨服务编排增多、需要削峰/可靠事件</td><td>RocketMQ + 本地消息表</td><td>收货/报工/质检改事件驱动；幂等消费者</td></tr>
+<tr><td>长流程、强一致诉求提升</td><td>Seata AT/Saga</td><td>领料-扣库存-报工等链路</td></tr>
+<tr><td>RAG 切片 >10 万 / 语义召回要求高</td><td>bge 向量 + Milvus</td><td>实现 <code>VectorRetriever</code> 替换 TfidfRetriever</td></tr>
+<tr><td>报表数据千万级、大屏亚秒</td><td>ClickHouse + CDC</td><td>业务库 binlog → ClickHouse</td></tr>
+<tr><td>设备联网、工艺参数采集</td><td>EMQX + OPC UA(Milo) + TimescaleDB</td><td>IoT 接入层、边缘断网续传</td></tr>
+<tr><td>上生产/多节点</td><td>K8s + Helm + ArgoCD</td><td>提供 Helm Chart、灰度/回滚</td></tr>
+<tr><td>AI 视觉/预测性维护</td><td>GPU + Triton/ONNX + MLflow</td><td>标注体系、模型灰度、bad case 回流</td></tr>
+<tr><td>故障定位/全链路监控</td><td>Prometheus/Grafana + SkyWalking + ELK</td><td>指标/链路/日志三件套</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>13. 代码结构总览</h2>
+
+<pre><code>smart-factory/
+├── docker-compose.yml            # 一键启动
+├── .env.example                  # 大模型/端口等环境变量模板
+├── README.md                     # 快速开始
+├── docs/                         # 本架构文档 + WBS
+├── db/init/                      # MySQL 首启自动执行：建库 + DDL + 种子数据
+├── backend/                      # Maven 多模块（parent pom）
+│   ├── smart-common/             # 统一响应/异常/JWT/上下文/Feign
+│   ├── system-service/           # 8081
+│   ├── wms-service/              # 8082
+│   ├── mes-service/              # 8083
+│   ├── qms-service/              # 8084
+│   └── gateway/                  # 8080
+├── ai-service/                   # FastAPI 8000（RAG/根因）
+└── frontend/                     # Vue3 + Nginx</code></pre>
+
+<blockquote>各模块的详细任务、估时、依赖与 DoD 见《02-WBS任务拆分与里程碑.md》。</blockquote>
+</body></html>

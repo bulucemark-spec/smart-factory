@@ -1,0 +1,135 @@
+<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>02 WBS任务拆分与里程碑</title><style>
+    body{font-family:'Microsoft YaHei',Segoe UI,sans-serif;line-height:1.75;max-width:960px;margin:24px auto;padding:0 24px;color:#24292f;background:#fff}
+    h1{border-bottom:2px solid #0969da;padding-bottom:8px;font-size:1.9em}
+    h2{border-bottom:1px solid #d8dee4;padding-bottom:6px;margin-top:28px;font-size:1.5em}
+    h3{margin-top:22px;font-size:1.25em}
+    table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.95em}
+    th,td{border:1px solid #d0d7de;padding:7px 12px;text-align:left}
+    th{background:#f6f8fa}
+    pre{background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:14px;overflow-x:auto;font-size:.9em}
+    code{background:#eff1f3;border-radius:4px;padding:2px 5px;font-family:Consolas,monospace}
+    pre code{background:none;padding:0}
+    blockquote{border-left:4px solid #0969da;margin:12px 0;padding:6px 14px;color:#57606a;background:#f6f8fa}
+    ul,ol{padding-left:26px}
+    a{color:#0969da}
+    img{max-width:100%}
+    </style></head><body><h1>WBS 任务拆分、迭代里程碑与验收标准</h1>
+
+<blockquote>配套《01-架构设计与需求完善.md》。本文件把目标拆成可排期、可认领、可验收的任务。<br>估时单位：人日（PD），按 1 名后端 + 0.5 前端 + 0.3 AI/数据的小团队口径；可按团队规模并行压缩。</blockquote>
+
+<hr>
+
+<h2>1. WBS 总览（工作分解结构）</h2>
+
+<table><thead><tr><th>一级工作包</th><th>二级任务（关键交付物）</th><th>依赖</th><th>估时(PD)</th></tr></thead><tbody>
+<tr><td><strong>WP0 工程地基</strong></td><td>代码仓库/骨架、parent pom、统一版本管理、CI 雏形、Docker 基础镜像</td><td>—</td><td>2</td></tr>
+<tr><td><strong>WP1 数据库</strong></td><td>四库 DDL、索引约束、种子数据、初始化挂载、ER 校对</td><td>WP0</td><td>3</td></tr>
+<tr><td><strong>WP2 common 公共包</strong></td><td>Result/PageResult、异常体系、错误码、BaseEntity、JWT、UserContext、Feign 配置、枚举、审计字段</td><td>WP0</td><td>3</td></tr>
+<tr><td><strong>WP3 system-service</strong></td><td>登录/JWT、用户/组织/角色、物料/供应商/BOM/工艺路线/工作中心 CRUD、数据权限雏形</td><td>WP1,WP2</td><td>8</td></tr>
+<tr><td><strong>WP4 wms-service</strong></td><td>仓库/库位、ASN/收货、待检库存、上架、库存查询/FIFO、波次/拣货、成品入库、销售出库、内部接口</td><td>WP1,WP2</td><td>10</td></tr>
+<tr><td><strong>WP5 qms-service</strong></td><td>检验标准/项目、IQC/IPQC/OQC 任务与判定、NCR/MRB/CAPA、SPC 记录与 Cpk、内部接口</td><td>WP1,WP2</td><td>9</td></tr>
+<tr><td><strong>WP6 mes-service</strong></td><td>工位建模、工单状态机、排产(规则)、下发领料、开工报工、完工入库、谱系追溯、OEE 简化</td><td>WP1,WP2</td><td>9</td></tr>
+<tr><td><strong>WP7 gateway</strong></td><td>路由、全局 JWT 过滤器、CORS、用户头透传、健康检查</td><td>WP2</td><td>2</td></tr>
+<tr><td><strong>WP8 ai-service</strong></td><td>FastAPI 骨架、文档切片、TF-IDF 检索、OpenAI 兼容客户端、RAG 问答、根因分析、Mock 降级、bad case 日志</td><td>WP0</td><td>5</td></tr>
+<tr><td><strong>WP9 frontend</strong></td><td>Vite/TS 脚手架、登录/布局/路由守卫/axios、主数据、收货/IQC/上架、库存、工单/报工、NCR/CAPA、出库、RAG、看板</td><td>WP3-WP8 契约</td><td>12</td></tr>
+<tr><td><strong>WP10 编排部署</strong></td><td>各 Dockerfile、docker-compose、MySQL 初始化、MinIO、nginx 反代、<code>.env</code>、健康检查/依赖顺序</td><td>全部</td><td>3</td></tr>
+<tr><td><strong>WP11 联调验证</strong></td><td>端到端走查、编译/构建、SQL 校验、接口自测、缺陷修复、演示数据/脚本</td><td>WP10</td><td>4</td></tr>
+<tr><td><strong>WP12 文档交付</strong></td><td>README、API 说明、大模型配置、运维手册雏形、演示脚本</td><td>WP11</td><td>2</td></tr>
+</tbody></table>
+
+<p>合计约 <strong>72 人日</strong>（垂直切片，约 2.5–3 个自然月的小团队节奏；个人全栈约 2–3 个月）。本仓库已一次性给出可运行实现，WBS 用于后续团队认领与二期扩展。</p>
+
+<hr>
+
+<h2>2. 迭代计划（解决 V2.0 里程碑 P2/P3 重叠问题）</h2>
+
+<blockquote>文档原里程碑以"系统"为阶段，易在第 7 月冲突。改为<strong>先纵向打通、再横向铺满</strong>。</blockquote>
+
+<h3>Iteration 0（本次交付，端到端地基 + 核心闭环）</h3>
+<ul><li>范围：WP0–WP12 的核心部分，打通 §6 全链路 + RAG/根因。</li><li>出口标准：<code>docker compose up -d</code> 后，能用演示账号完成一遍"收货→IQC→上架→领料→报工→完工→OQC→出库"，并能跑通一次 NCR→CAPA，RAG 可问答。</li></ul>
+
+<h3>Iteration 1（横向补 WMS/QMS 广度）</h3>
+<ul><li>WMS：盘点（循环/动盘/差异审批）、波次策略完善（摘果/播种/边拣边分）、路径优化、复核打包称重、计费、多货主深化。</li><li>QMS：SPC 八大判异、控制图全类型、供应商绩效自动评分/分级、8D 全流程、质量成本 PAF 报表。</li><li>AI：OCR 仪表读数、需求/库存预测。</li></ul>
+
+<h3>Iteration 2（MES 深化 + IoT + 视觉）</h3>
+<ul><li>MES：可视化工厂建模、Andon 全流程、电子看板/SOP 推送防错、OEE 全量、JIT 物料拉动、APS 齐套检查与插单模拟。</li><li>IoT：EMQX + OPC UA + TimescaleDB，边缘网关断网续传。</li><li>AI 视觉：标注体系 + YOLOv8/ONNX + 人工复核回流（先试点线）。</li></ul>
+
+<h3>Iteration 3（智能化 + 生产化）</h3>
+<ul><li>预测性维护（LSTM/Isolation Forest）、智能排产（GA/RL）、RAG 升级向量库 Milvus。</li><li>治理与上生产：Nacos/Sentinel/Seata、RocketMQ、ClickHouse、K8s/Helm/ArgoCD、可观测三件套、备份灾备演练。</li></ul>
+
+<h3>与原文档里程碑映射</h3>
+<table><thead><tr><th>原阶段</th><th>重新落位</th></tr></thead><tbody>
+<tr><td>P1 基础平台+MES 核心</td><td>Iteration 0（system + mes 核心）</td></tr>
+<tr><td>P2 WMS 全模块</td><td>Iteration 0（核心）+ Iteration 1（全量）</td></tr>
+<tr><td>P3 QMS 全模块</td><td>Iteration 0（核心）+ Iteration 1（全量），与 WMS 错峰</td></tr>
+<tr><td>P4 AI 赋能</td><td>Iteration 0（RAG/根因）+ Iteration 1/2/3（其余）</td></tr>
+<tr><td>P5 推广优化</td><td>Iteration 3 起</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>3. 各服务任务明细（可直接认领）</h2>
+
+<h3>3.1 system-service</h3>
+<ul><li>[ ] <code>POST /auth/login</code>、<code>GET /auth/me</code></li><li>[ ] 组织树 CRUD、用户 CRUD（重置密码/启停用）、角色 CRUD</li><li>[ ] 物料 CRUD（批次/效期/ABC）、供应商 CRUD</li><li>[ ] BOM + 明细（版本/生效）、工艺路线 + 工序、工作中心</li><li>[ ] 主数据下拉/分页/关键字查询接口（供其他服务与前端）</li></ul>
+
+<h3>3.2 wms-service</h3>
+<ul><li>[ ] 仓库/库区/库位 CRUD</li><li>[ ] ASN + 明细、到货预约；收货登记（写待检库存）→ Feign QMS 建 IQC</li><li>[ ] 内部接口：合格建上架任务 / 不合格冻结 / 成品批次放行</li><li>[ ] 上架执行；库存多维度查询；FIFO 批次推荐</li><li>[ ] 领料波次/拣货（条件扣减、防超扣）；成品入库；销售出库全流程</li><li>[ ] （Iter1）盘点、复核打包、计费</li></ul>
+
+<h3>3.3 qms-service</h3>
+<ul><li>[ ] 检验标准 + 检验项（上下限/CTQ/AQL）</li><li>[ ] IQC/IPQC/OQC 任务生成、结果录入、自动判定</li><li>[ ] 内部接口：收货建 IQC、完工建 OQC</li><li>[ ] 判定后 Feign WMS（合格/冻结）；不合格建 NCR</li><li>[ ] NCR → MRB 处置 → CAPA → 验证关闭</li><li>[ ] SPC 记录录入、控制图数据、Cp/Cpk 计算</li><li>[ ] （Iter1）供应商评分、8D、质量成本</li></ul>
+
+<h3>3.4 mes-service</h3>
+<ul><li>[ ] 工位/工作中心建模</li><li>[ ] 工单 CRUD + 状态机（release/pick/start/report/complete/stockIn/close/cancel）</li><li>[ ] 规则排产（按工作中心产能/交期排序，甘特数据）</li><li>[ ] 下发 → Feign WMS 领料波次；线边交接回写投料 + Genealogy</li><li>[ ] 开工/报工（合格/不良/报废、不良代码）</li><li>[ ] 完工 → Feign WMS 成品入库 + QMS OQC</li><li>[ ] 正反向谱系查询；OEE（可用/性能/质量）简化</li></ul>
+
+<h3>3.5 gateway</h3>
+<ul><li>[ ] 路由表（system/mes/wms/qms/ai）</li><li>[ ] 全局 JWT 过滤器（解析/校验/透传/放行清单）</li><li>[ ] CORS、全局异常/超时</li></ul>
+
+<h3>3.6 ai-service</h3>
+<ul><li>[ ] 启动加载 <code>knowledge/</code> 切片与索引</li><li>[ ] <code>POST /ai/chat</code>（RAG，带 [来源]）</li><li>[ ] <code>POST /ai/root-cause</code>（5M1E 鱼骨）</li><li>[ ] <code>GET /ai/health</code>；LLM 客户端与 Mock 降级；调用日志/反馈</li></ul>
+
+<h3>3.7 frontend</h3>
+<ul><li>[ ] 登录、布局菜单、路由守卫、Pinia 用户态、axios 拦截器（token/401）</li><li>[ ] 主数据页（物料/供应商/BOM/工艺/工作中心）</li><li>[ ] 仓储页（ASN/收货、上架、库存、波次拣货、出库）</li><li>[ ] 质量页（检验标准、IQC/IPQC/OQC 任务台、NCR/CAPA、SPC）</li><li>[ ] 制造页（工单、排产看板、报工、追溯图谱）</li><li>[ ] AI 助手对话页、根因分析页；综合看板</li></ul>
+
+<hr>
+
+<h2>4. 完成定义（DoD）</h2>
+
+<p><strong>通用 DoD（每个任务都必须满足）</strong></p>
+<ol><li>代码可编译/构建，无阻断性告警；遵循统一响应与错误码。</li><li>关键路径有自测（接口可在 Swagger/脚本中跑通）；异常分支有处理与提示。</li><li>涉及状态变更：有前置状态校验，非法跳变返回 1009/4011 等。</li><li>涉及库存：条件更新防超扣；写操作幂等。</li><li>提交信息清晰；无密钥/口令硬编码；公共逻辑沉淀到 common。</li><li>对应前端（若需要）可完成操作闭环；Docker 下服务健康检查通过。</li></ol>
+
+<p><strong>服务级 DoD</strong></p>
+<ul><li>system：能登录、能维护闭环所需全部主数据。</li><li>wms：账实一致（每次变动可追溯单据）、FIFO 正确、超扣被拦截。</li><li>qms：判定结果与上下限/AQL 一致；不合格必产生 NCR 且能闭环。</li><li>mes：工单状态不可非法跳变；报工数量累计正确；谱系可正反向查询。</li><li>ai：回答带引用；无据明确转人工；无 key 可离线演示。</li></ul>
+
+<hr>
+
+<h2>5. 验收标准（映射业务 KPI）</h2>
+
+<table><thead><tr><th>业务目标</th><th>验收用例</th></tr></thead><tbody>
+<tr><td>业务线上化</td><td>核心闭环全程无纸质单据，系统内完成全部操作</td></tr>
+<tr><td>全链路追溯</td><td>给定成品批次，秒级反查物料批次/设备/人员/工单；给定物料批次正查受影响成品</td></tr>
+<tr><td>质量闭环</td><td>制造一个不合格项，验证：自动冻结 → NCR → MRB → CAPA → 验证关闭，全程留痕</td></tr>
+<tr><td>库存精准</td><td>收/发后库存与单据一致；FIFO 推荐按效期；模拟超扣被拦截；冻结批次不可出库</td></tr>
+<tr><td>AI 赋能</td><td>RAG 对知识内问题给出带引用答案；对知识外问题明确转人工；根因输出 5M1E 排序</td></tr>
+<tr><td>可部署</td><td>全新环境 <code>docker compose up -d</code> 后健康检查全绿，按 README 可完成演示</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 风险登记册</h2>
+
+<table><thead><tr><th>风险</th><th>等级</th><th>应对</th></tr></thead><tbody>
+<tr><td>视觉/预测性维护缺标注与历史数据</td><td>高</td><td>后移至 Iter2/3，先建数据采集与标注体系</td></tr>
+<tr><td>跨服务 Feign 编排失败导致半成品状态</td><td>中</td><td>状态前置校验 + 幂等 + 可读错误 + 补偿；二期 MQ/Saga</td></tr>
+<tr><td>试点环境资源不足（多容器）</td><td>中</td><td>裁剪中间件、合理 JVM 堆、服务可选启停</td></tr>
+<tr><td>主数据冗余快照不一致</td><td>低</td><td>冗余 <code>_name</code> + 二期事件刷新/对账</td></tr>
+<tr><td>云端 LLM 泄密/合规</td><td>中</td><td>仅传必要片段；敏感场景走本地模型/合规网关；key 走环境变量</td></tr>
+<tr><td>范围蔓延（一次想做全）</td><td>高</td><td>严守垂直切片边界，新增需求进迭代 Backlog</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>7. 上线/演示检查单（Iteration 0）</h2>
+
+<ul><li>[ ] <code>.env</code> 已配置（或确认使用 Mock 离线模式）</li><li>[ ] <code>docker compose up -d</code> 全部容器 <code>healthy</code></li><li>[ ] 种子数据已加载（组织/账号/物料/BOM/供应商/库位）</li><li>[ ] 走一遍 §5 验收用例（合格链路 + 不合格链路 + RAG）</li><li>[ ] 浏览器访问前端，演示账号可登录</li><li>[ ] 记录演示脚本与关键截图</li></ul>
+</body></html>

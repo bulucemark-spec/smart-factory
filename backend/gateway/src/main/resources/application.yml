@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origin-patterns: "*"
+            allowed-methods: "*"
+            allowed-headers: "*"
+            allow-credentials: true
+      routes:
+        - id: system-service
+          uri: ${SYSTEM_URL:http://system-service:8081}
+          predicates:
+            - Path=/api/system/**
+          filters:
+            - StripPrefix=1
+        - id: wms-service
+          uri: ${WMS_URL:http://wms-service:8082}
+          predicates:
+            - Path=/api/wms/**
+          filters:
+            - StripPrefix=1
+        - id: mes-service
+          uri: ${MES_URL:http://mes-service:8083}
+          predicates:
+            - Path=/api/mes/**
+          filters:
+            - StripPrefix=1
+        - id: qms-service
+          uri: ${QMS_URL:http://qms-service:8084}
+          predicates:
+            - Path=/api/qms/**
+          filters:
+            - StripPrefix=1
+        - id: ai-service
+          uri: ${AI_URL:http://ai-service:8000}
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - StripPrefix=1
+
+jwt:
+  secret: ${JWT_SECRET:smart-factory-default-secret-key-please-change-in-prod-0123456789abcdef}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: info

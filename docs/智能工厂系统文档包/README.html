@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>智能工厂 MES/WMS/QMS 系统 使用说明</title><style>
+    body{font-family:'Microsoft YaHei',Segoe UI,sans-serif;line-height:1.75;max-width:960px;margin:24px auto;padding:0 24px;color:#24292f;background:#fff}
+    h1{border-bottom:2px solid #0969da;padding-bottom:8px;font-size:1.9em}
+    h2{border-bottom:1px solid #d8dee4;padding-bottom:6px;margin-top:28px;font-size:1.5em}
+    h3{margin-top:22px;font-size:1.25em}
+    table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.95em}
+    th,td{border:1px solid #d0d7de;padding:7px 12px;text-align:left}
+    th{background:#f6f8fa}
+    pre{background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:14px;overflow-x:auto;font-size:.9em}
+    code{background:#eff1f3;border-radius:4px;padding:2px 5px;font-family:Consolas,monospace}
+    pre code{background:none;padding:0}
+    blockquote{border-left:4px solid #0969da;margin:12px 0;padding:6px 14px;color:#57606a;background:#f6f8fa}
+    ul,ol{padding-left:26px}
+    a{color:#0969da}
+    img{max-width:100%}
+    </style></head><body><h1>智能工厂 MES-WMS-QMS 一体化平台</h1>
+
+<p>面向离散制造（以 SMT + 整机组装为样板）的智能制造一体化运营系统，覆盖 <strong>生产执行 MES、仓储管理 WMS、质量管理 QMS</strong> 三大核心域，并提供 <strong>AI 知识助手与质量根因分析</strong> 能力。系统以端到端业务闭环为目标：从收货、来料检验、上架，到工单下达、领料、生产报工、完工入库、成品检验，再到出库交付；质量异常自动走 NCR → MRB → CAPA 闭环并形成正反向产品追溯。</p>
+
+<h2>一、系统组成与端口</h2>
+
+<table><thead><tr><th>服务</th><th>技术栈</th><th>容器端口</th><th>说明</th></tr></thead><tbody>
+<tr><td>frontend</td><td>Vue3 + Vite + Element Plus + Pinia + ECharts</td><td>80（主机 <code>8088</code>）</td><td>统一前端入口，nginx 反代 <code>/api</code></td></tr>
+<tr><td>gateway</td><td>Spring Cloud Gateway（WebFlux）</td><td>8080</td><td>统一入口、JWT 校验、CORS、路由转发</td></tr>
+<tr><td>system-service</td><td>Spring Boot 3 + MyBatis-Plus</td><td>8081</td><td>认证、组织/用户/角色、物料/供应商/BOM/工艺/工作中心</td></tr>
+<tr><td>wms-service</td><td>Spring Boot 3 + MyBatis-Plus + OpenFeign</td><td>8082</td><td>收货、上架、库存、领料拣货、出库</td></tr>
+<tr><td>mes-service</td><td>Spring Boot 3 + MyBatis-Plus + OpenFeign</td><td>8083</td><td>工厂建模、工单状态机、报工、投料与谱系</td></tr>
+<tr><td>qms-service</td><td>Spring Boot 3 + MyBatis-Plus + OpenFeign</td><td>8084</td><td>IQC/OQC、NCR、CAPA、SPC（控制图/Cpk）</td></tr>
+<tr><td>ai-service</td><td>Python FastAPI</td><td>8000</td><td>RAG 知识助手、质量根因分析</td></tr>
+<tr><td>MySQL</td><td>MySQL 8.0</td><td>3306</td><td>4 个业务库，首启自动建表与种子数据</td></tr>
+<tr><td>Redis</td><td>Redis 7</td><td>6379</td><td>缓存（预留）</td></tr>
+<tr><td>MinIO</td><td>MinIO</td><td>9000 / 9001</td><td>对象存储（预留，控制台 9001）</td></tr>
+</tbody></table>
+
+<h2>二、技术栈</h2>
+
+<ul><li>后端：Java 17、Spring Boot 3.2.5、Spring Cloud 2023.0.1、Spring Cloud Gateway、OpenFeign、MyBatis-Plus 3.5.5、jjwt 0.12.5</li><li>前端：Vue 3.4、TypeScript、Vite 5、Element Plus 2.7、Pinia、Vue Router、ECharts</li><li>AI：FastAPI、httpx；RAG 采用轻量 TF-IDF 余弦检索（<code>Retriever</code> 抽象，二期可替换为向量库 Milvus）</li><li>基础设施：MySQL 8、Redis 7、MinIO；Docker Compose 一键编排</li></ul>
+
+<blockquote>试点期采用「轻量服务 + 固定服务名直连」：以 Gateway + OpenFeign + 本地事务 + 状态机 + 条件库存扣减保证闭环正确，暂不引入 Nacos / Sentinel / Seata / RocketMQ / Milvus / K8s。触发引入的条件见 <code>docs/01-架构设计与需求完善.md</code>。</blockquote>
+
+<h2>三、快速开始（Docker Compose 一键启动）</h2>
+
+<p>前置：已安装 Docker / Docker Compose。</p>
+
+<pre><code># 1. 进入项目目录
+cd smart-factory
+
+# 2.（可选）配置环境变量，尤其是大模型 API Key
+cp .env.example .env
+#   编辑 .env；不填 LLM_API_KEY 也能运行，AI 自动降级为离线 Mock
+
+# 3. 构建并启动全部服务（首次构建需要数分钟）
+docker compose up -d --build
+
+# 4. 查看启动状态与日志
+docker compose ps
+docker compose logs -f gateway</code></pre>
+
+<p>启动完成后：</p>
+
+<ul><li>前端：http://localhost:8088</li><li>API 网关：http://localhost:8080</li><li>MinIO 控制台：http://localhost:9001 （minioadmin / minioadmin）</li></ul>
+
+<p>停止与清理：</p>
+
+<pre><code>docker compose down            # 停止并移除容器（保留数据卷）
+docker compose down -v         # 同时删除数据卷（数据库将重新初始化）</code></pre>
+
+<h2>四、大模型 API 配置（可选）</h2>
+
+<p>AI 服务使用 <strong>OpenAI 兼容接口</strong>，在 <code>.env</code> 中配置：</p>
+
+<pre><code>LLM_BASE_URL=https://api.openai.com/v1
+LLM_API_KEY=sk-xxxx
+LLM_MODEL=gpt-4o-mini</code></pre>
+
+<ul><li>兼容 OpenAI 官方及任何提供 <code>/v1/chat/completions</code> 的兼容网关 / 国内主流兼容服务，按服务商文档填写 <code>LLM_BASE_URL</code> 与 <code>LLM_MODEL</code>。</li><li>系统会自动处理 <code>LLM_BASE_URL</code> 是否包含 <code>/v1</code>。</li><li><strong>未配置 <code>LLM_API_KEY</code> 时自动降级为离线 Mock</strong>：检索与流程引导可用，答案标注为离线演示，不影响其他服务。</li><li>RAG 强制基于内置知识库（<code>ai-service/app/knowledge/*.md</code>）回答并附「参考来源」；资料不足时提示转人工，不臆造。</li></ul>
+
+<h2>五、演示账号</h2>
+
+<table><thead><tr><th>角色</th><th>用户名</th><th>密码</th></tr></thead><tbody>
+<tr><td>系统管理员</td><td>admin</td><td>admin123</td></tr>
+<tr><td>计划员</td><td>planner</td><td>planner123</td></tr>
+<tr><td>仓管员</td><td>warehouse</td><td>warehouse123</td></tr>
+<tr><td>检验员</td><td>inspector</td><td>inspector123</td></tr>
+<tr><td>操作员</td><td>operator</td><td>operator123</td></tr>
+</tbody></table>
+
+<h2>六、端到端业务闭环演示路径</h2>
+
+<h3>链路 A：来料收货 → IQC → 上架</h3>
+<ol><li>（仓管）<code>仓储 WMS - 收货</code>：选择待收货 ASN，填写物料批号与实收数量，确认收货。</li></ol>
+<p>   系统自动在待检库位建立待检库存，并向 QMS 推送 IQC 任务。</p>
+<ol><li>（检验）<code>质量 QMS - 检验任务</code>：打开 IQC 任务，逐项录入实测/判定，提交。</li></ol>
+<ul><li>合格：库存转合格并自动生成上架任务；</li><li>不合格：库存冻结并自动生成 NCR（进入链路 C）。</li></ul>
+<ol><li>（仓管）<code>仓储 WMS - 上架作业</code>：选择目标库位，执行上架。</li></ol>
+
+<h3>链路 B：工单 → 领料 → 生产 → 完工 → OQC → 出库</h3>
+<ol><li>（计划）<code>生产 MES - 工单管理</code>：创建工单（选成品、BOM、工艺路线、数量），随后「下达」。</li></ol>
+<p>   系统按 BOM×计划量向 WMS 推送领料波次。</p>
+<ol><li>（仓管）<code>仓储 WMS - 领料拣货</code>：打开波次查看 FIFO 分配结果，「执行拣货」进行条件库存扣减。</li><li>（生产）<code>工单管理</code>：对工单「线边交接」（回写投料与谱系）→「开工」。</li><li>（操作）<code>生产 MES - 报工作业</code>：按工位/工序录入合格、不良、报废数量。</li><li>（生产）<code>工单管理</code>：「完工」——生成成品批次、回填谱系、WMS 成品入库、QMS 建立 OQC。</li><li>（检验）完成 OQC：合格则成品放行；不合格则冻结并走 NCR/CAPA。</li><li>（仓管）<code>仓储 WMS - 出库管理</code>：创建出库单，合格成品「发运」。</li><li>（追溯）<code>生产 MES - 产品追溯</code>：输入成品批次正向查询子件，或输入子件批次反向查询成品。</li></ol>
+
+<h3>链路 C：质量异常 → NCR → MRB → CAPA</h3>
+<ol><li>检验不合格自动生成 NCR 并冻结库存。</li><li><code>质量 QMS - 不合格品 NCR</code>：MRB 评审确定处置（退货/让步/返工/报废），系统联动 WMS 处置并自动建立 CAPA。</li><li><code>质量 QMS - CAPA 管理</code>：填写根本原因、纠正/预防措施、责任人（执行）；质量部「验证」。</li><li>验证通过则关闭 CAPA 并联动关闭 NCR；不通过退回重做。</li></ol>
+
+<h3>AI 赋能</h3>
+<ul><li><code>AI 赋能 - 智能助手</code>：基于 SOP/8D/SPC 知识库问答并标注来源。</li><li><code>AI 赋能 - 根因分析</code>：输入缺陷现象与上下文，按 8D/鱼骨图给出可能根因与措施建议。</li></ul>
+
+<h2>七、本地开发</h2>
+
+<h3>后端（需 JDK 17、Maven）</h3>
+<pre><code>cd backend
+mvn clean install -DskipTests
+# 分别启动各服务（依赖本地/容器中的 MySQL，可通过环境变量 MYSQL_HOST 等覆盖）</code></pre>
+
+<h3>前端（需 Node 18+）</h3>
+<pre><code>cd frontend
+npm install
+npm run dev      # http://localhost:5173 ，已配置 /api 代理到 http://localhost:8080</code></pre>
+
+<h3>AI 服务（需 Python 3.11+）</h3>
+<pre><code>cd ai-service
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000</code></pre>
+
+<h2>八、文档与交付物</h2>
+
+<ul><li><code>docs/01-架构设计与需求完善.md</code>：需求 Gap、架构决策、服务边界、领域模型、状态机、闭环时序、API 契约、一致性方案、AI 设计、非功能验证、演进路线</li><li><code>docs/02-WBS任务拆分与里程碑.md</code>：WBS、迭代计划、DoD、验收映射、风险登记、上线检查单</li><li><code>db/init/*.sql</code>：四库 DDL 与种子数据（MySQL 首启自动执行）</li></ul>
+
+<h2>九、二期演进</h2>
+
+<p>视觉检测、预测性维护等 AI 场景强依赖标注样本与设备数据，列为二期（先解决数据采集与标注）；随着规模增长，按架构文档触发条件逐步引入注册配置中心、消息队列、分布式事务、向量库与容器编排平台。</p>
+</body></html>

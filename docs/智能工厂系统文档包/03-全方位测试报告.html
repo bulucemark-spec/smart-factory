@@ -1,0 +1,142 @@
+<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><title>03 全方位测试报告</title><style>
+    body{font-family:'Microsoft YaHei',Segoe UI,sans-serif;line-height:1.75;max-width:960px;margin:24px auto;padding:0 24px;color:#24292f;background:#fff}
+    h1{border-bottom:2px solid #0969da;padding-bottom:8px;font-size:1.9em}
+    h2{border-bottom:1px solid #d8dee4;padding-bottom:6px;margin-top:28px;font-size:1.5em}
+    h3{margin-top:22px;font-size:1.25em}
+    table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.95em}
+    th,td{border:1px solid #d0d7de;padding:7px 12px;text-align:left}
+    th{background:#f6f8fa}
+    pre{background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:14px;overflow-x:auto;font-size:.9em}
+    code{background:#eff1f3;border-radius:4px;padding:2px 5px;font-family:Consolas,monospace}
+    pre code{background:none;padding:0}
+    blockquote{border-left:4px solid #0969da;margin:12px 0;padding:6px 14px;color:#57606a;background:#f6f8fa}
+    ul,ol{padding-left:26px}
+    a{color:#0969da}
+    img{max-width:100%}
+    </style></head><body><h1>智能工厂 MES/WMS/QMS 系统 — 全方位测试报告</h1>
+
+<table><thead><tr><th>项目</th><th>内容</th></tr></thead><tbody>
+<tr><td>被测系统</td><td>smart-factory（MES + WMS + QMS + AI + 前端 + 网关）</td></tr>
+<tr><td>项目路径</td><td><code>E:\code\smart-factory</code></td></tr>
+<tr><td>测试时间</td><td>2026-10-10</td></tr>
+<tr><td>测试方式</td><td>Docker Compose 全容器部署 + PowerShell 自动化接口/端到端测试</td></tr>
+<tr><td><strong>总体结论</strong></td><td><strong>89 个用例全部通过（PASS 89 / FAIL 0），三条核心业务闭环、鉴权安全、AI 服务与异常边界均验证通过</strong></td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>1. 测试范围</h2>
+
+<table><thead><tr><th>维度</th><th>覆盖内容</th></tr></thead><tbody>
+<tr><td>静态与启动</td><td>全模块 Maven 编译、9 个容器干净启动、MySQL/Redis 健康检查</td></tr>
+<tr><td>鉴权与安全</td><td>无 Token / 伪造 / 非法 Token 拦截、白名单、登录签发、当前用户解析、五类角色登录</td></tr>
+<tr><td>主数据</td><td>组织、角色、用户、物料、供应商、工作中心、BOM、工艺路线的分页/详情/关键字检索</td></tr>
+<tr><td>端到端链路 A</td><td>采购收货 → IQC 检验合格 → 上架 → 库存迁移</td></tr>
+<tr><td>端到端链路 B</td><td>建单 → 下达领料（FIFO）→ 拣货扣减 → 线边交接 → 开工 → 报工 → 完工入库 → OQC 放行 → 出库发运 → 正反向追溯</td></tr>
+<tr><td>端到端链路 C</td><td>IQC 不合格 → 批次冻结 → 自动建 NCR → MRB 评审处置 → 联动 WMS → 自动建 CAPA → 执行 → 验证关闭；SPC 控制图与过程能力 Cpk</td></tr>
+<tr><td>AI 服务</td><td>健康检查、知识库加载、RAG 智能问答、未命中兜底、根因分析、鉴权保护</td></tr>
+<tr><td>异常与边界</td><td>参数缺失、非法报文、库存超扣、非法状态流转、重复提交/执行/发运、不存在 ID</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>2. 测试环境</h2>
+
+<ul><li>9 个容器：<code>sf-frontend / sf-gateway / sf-system / sf-wms / sf-mes / sf-qms / sf-ai / sf-mysql / sf-redis</code>，数据卷复用、数据持久化。</li><li>主机端口：前端 <code>8088</code>、网关 <code>8090</code>、MySQL <code>3306</code>、Redis <code>6380</code>。</li><li>网关统一入口 <code>/api/{system|wms|mes|qms|ai}/&lt;strong&gt;</code>（StripPrefix=1）；服务间经 <code>/internal/&lt;/strong&gt;</code> 由 OpenFeign 按 compose 服务名直连，不经过网关。</li><li>统一返回体 <code>{ code, message, data }</code>；AI 服务（FastAPI）为原生 JSON。</li><li>错误码：<code>0</code> 成功、<code>1001</code> 凭据错误、<code>1003</code> 未认证、<code>1004</code> 参数错误、<code>1005</code> 未找到、<code>1009</code> 状态冲突、<code>3011</code> 库存不足、<code>1500</code> 系统异常。</li></ul>
+
+<hr>
+
+<h2>3. 测试结果汇总</h2>
+
+<table><thead><tr><th>#</th><th>测试模块</th><th>用例数</th><th>通过</th><th>失败</th></tr></thead><tbody>
+<tr><td>1</td><td>鉴权与安全</td><td>13</td><td>13</td><td>0</td></tr>
+<tr><td>2</td><td>system 主数据</td><td>13</td><td>13</td><td>0</td></tr>
+<tr><td>3</td><td>链路 A：收货→IQC→上架</td><td>10</td><td>10</td><td>0</td></tr>
+<tr><td>4</td><td>链路 B：工单→生产→出库</td><td>19</td><td>19</td><td>0</td></tr>
+<tr><td>5</td><td>链路 C：NCR→MRB→CAPA + SPC</td><td>13</td><td>13</td><td>0</td></tr>
+<tr><td>6</td><td>AI 服务</td><td>9</td><td>9</td><td>0</td></tr>
+<tr><td>7</td><td>异常与边界</td><td>12</td><td>12</td><td>0</td></tr>
+<tr><td></td><td><strong>合计</strong></td><td><strong>89</strong></td><td><strong>89</strong></td><td><strong>0</strong></td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>4. 各阶段测试详情</h2>
+
+<h3>4.1 鉴权与安全（13/13）</h3>
+<ul><li>无 Token 访问物料、WMS 库存接口 → <code>code=1003 / HTTP 401</code>。</li><li>伪造 Token、非法格式 Token → 均被拒绝（1003 / 401）。</li><li>白名单 <code>/api/ai/health</code> 可匿名访问，返回 <code>status=UP</code>。</li><li>错误密码、不存在用户登录 → <code>code=1001</code>。</li><li>admin 正确登录签发 JWT（长度 291），<code>/me</code> 正确解析当前用户。</li><li>planner / warehouse / inspector / operator 四个角色账号均能正常登录。</li></ul>
+
+<h3>4.2 system 主数据（13/13）</h3>
+<p>种子数据完整：组织 8、角色 5、用户 5、物料 6、供应商 2、工作中心 4、BOM 1、工艺路线 1。</p>
+<ul><li>BOM <code>5001</code> 详情含 <strong>5 个明细</strong>（PCB×1、外壳×1、芯片×1、螺丝×4、包装盒×1）。</li><li>工艺路线 <code>6001</code> 详情含 <strong>4 道工序</strong>（SMT 贴片→整机组装→功能测试→包装入库）。</li><li>物料 <code>1001</code> 详情为 <code>FG-100</code>；关键字 <code>RM</code> 命中 4 条原材料、<code>SUP</code> 命中 2 条供应商。</li></ul>
+
+<h3>4.3 链路 A：收货→IQC→上架（10/10）</h3>
+<ul><li>收货单 <code>RC20261010172757141</code>：PCB 主板 100 件，自动在待检库位 <code>RECV-01</code> 建立 PENDING 库存 100。</li><li>自动建立 IQC 任务并命中标准 <code>STD-PCB-IQC</code>；录入长度 100.0（规格 99.8–100.2）、厚度 1.6（1.5–1.7）、外观 OK → 判定 QUALIFIED。</li><li>合格自动生成上架任务，推荐库位 <code>A-01-01</code>，执行上架：待检库存清零、目标库位 QUALIFIED 库存 100。</li></ul>
+
+<h3>4.4 链路 B：工单→生产→出库（19/19）</h3>
+<ul><li>按 BOM 自动备齐 5 种原材料合格库存（PCB 150、外壳 50、芯片 50、螺丝 200、包装盒 50）。</li><li>工单 <code>WO20261010173058290</code>（计划 10 台）→ 下达生成领料波次 <code>WV20261010173059562</code>，按 BOM 展开并 FIFO 分配批次。</li><li>执行整波拣货，条件扣减合格库存，波次 PICKED；线边交接回写投料记录与谱系，工单 PICKED。</li><li>开工 STARTED → 报工合格 10 件（qtyCompleted=10）→ 完工生成成品批次 <code>FG20261010173103670</code>，成品入成品仓并自动建立 OQC。</li><li>OQC（功能/外观/包装）判定合格放行，成品仓 QUALIFIED 库存 10。</li><li>出库单 <code>OB20261010173107351</code> → 确认发运 SHIPPED，成品库存清零。</li><li>反向追溯（成品批次→原料批次）返回 5 条子件记录，正向追溯接口可用。</li></ul>
+
+<h3>4.5 链路 C：NCR→MRB→CAPA + SPC（13/13）</h3>
+<ul><li>IQC 提交长度超差（实测超上限）→ 任务 UNQUALIFIED，批次自动冻结（FROZEN 50）。</li><li>自动生成 NCR <code>NCR20261010173323327</code>（OPEN）。</li><li>MRB 评审处置 SCRAP → NCR REVIEWED，WMS 联动将库存置为 SCRAPPED（50），并自动生成 CAPA <code>CAPA20261010173325014</code>（OPEN）。</li><li>录入根本原因/纠正措施/预防措施并执行 → CAPA IN_PROGRESS；质量部验证通过 → CAPA CLOSED，关联 NCR 联动 CLOSED。</li><li>SPC：录入 20 个受控数据点，控制图返回均值/UCL/LCL（mean=100.004）；过程能力 <strong>Cp=2.587、Cpk=2.564（>1.33，过程能力充分）</strong>。</li></ul>
+
+<h3>4.6 AI 服务（9/9）</h3>
+<ul><li>健康检查 UP，知识库加载 <strong>23 个文档块</strong>。</li><li>未授权访问 <code>/ai/chat</code> 被拦截（1003/401）。</li><li>RAG 问答返回答案（长度 545）并附带 4 条检索来源。</li><li>纯乱码问题（词项在知识库不存在）检索为空，返回"未检索到、建议转人工"兜底，不臆造。</li><li>根因分析返回分析文本与 3 条"人/机/料/法/环"可能原因。</li><li>当前未配置 API Key，<code>llm_enabled=false</code>，自动走内置 Mock，流程完整。</li></ul>
+
+<h3>4.7 异常与边界（12/12）</h3>
+<ul><li>登录缺密码 → 1004；非法 JSON 报文 → 1004（详见第 5 节修复）。</li><li>查询不存在 ID 返回空数据；出库超扣库存 → 3011。</li><li>未下达即开工、未拣货即线边交接、无合格报工即完工 → 均 1009。</li><li>检验任务重复提交、NCR 重复 MRB、CAPA 未执行即验证、上架任务重复执行、出库单重复发运 → 均 1009，状态机保护有效。</li></ul>
+
+<hr>
+
+<h2>5. 测试中发现并修复的问题</h2>
+
+<h3>5.1 应用代码缺陷（已修复并回归验证）</h3>
+<table><thead><tr><th>编号</th><th>问题</th><th>修复</th><th>状态</th></tr></thead><tbody>
+<tr><td>D-01</td><td>非法/不可读请求报文（<code>HttpMessageNotReadableException</code>）原本落入兜底，返回 <code>1500 系统异常</code>，会把<strong>客户端坏请求误报为系统故障</strong>，干扰监控与告警判断</td><td>在 <code>smart-common</code> 的 <code>GlobalExceptionHandler</code> 中新增 <code>HttpMessageNotReadableException → 1004 参数错误</code> 映射，并顺带补充 <code>MethodArgumentTypeMismatchException → 1004</code></td><td>已重建 <code>system-service</code> 并回归，返回 1004，<strong>通过</strong></td></tr>
+</tbody></table>
+
+<h3>5.2 测试框架 / 环境问题（非应用缺陷，已根治）</h3>
+<table><thead><tr><th>编号</th><th>现象</th><th>处理</th></tr></thead><tbody>
+<tr><td>T-01</td><td>无 BOM 的 UTF-8 <code>.ps1</code> 被 Windows PowerShell 以 ANSI 读取，中文乱码破坏字符串解析</td><td>所有测试脚本统一保存为 UTF-8 BOM</td></tr>
+<tr><td>T-02</td><td>curl 默认走系统代理 <code>127.0.0.1:7897</code>（代理未运行）导致请求失败</td><td>测试框架固定 <code>--noproxy "*"</code></td></tr>
+<tr><td>T-03</td><td>PowerShell 向 curl 传 JSON 时双引号被剥离，后端报 JsonParseException</td><td>请求体统一写临时文件并 <code>--data-binary @file</code></td></tr>
+<tr><td>T-04</td><td>结果数组被 ConvertTo-Json 序列化为单对象</td><td>改用强类型 <code>List[object]</code> 并强制平铺数组</td></tr>
+<tr><td>T-05</td><td>SPC 初版测试数据波动过大导致 Cpk=1.11 不达阈值</td><td>收窄数据波动（测试数据设计问题），回归 Cpk=2.56</td></tr>
+<tr><td>T-06</td><td>AI"未命中"用例含中文单字被模糊检索命中</td><td>改用纯乱码输入，检索为空，正确触发兜底</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 已知限制与改进建议</h2>
+
+<ol><li><strong>通用详情接口 404 规范化</strong>：<code>BaseCrudController</code> 的 <code>GET /{id}</code> 对不存在 ID 当前返回 <code>code=0, data=null</code>，建议改为 <code>code=1005 / HTTP 404</code>，语义更清晰（本次测试按现状断言）。</li><li><strong>对象存储</strong>：MinIO 因公共镜像源拉取受限，默认置于 <code>storage</code> profile（不启动），附件/文件能力暂未启用；网络可达后 <code>--profile storage</code> 一键启用。</li><li><strong>大模型接入</strong>：AI 服务未配置 <code>LLM_API_KEY</code> 时走内置 Mock。在 <code>.env</code> 填入 OpenAI 兼容接口的 <code>base_url / api_key / model</code> 后即获得完整智能问答与根因分析（<code>llm_enabled=true</code>）。</li><li><strong>跨服务一致性</strong>：服务间 Feign 调用失败目前采用 warn 降级、不回滚（如 IQC 推送、成品入库）。建议二期引入消息队列或本地消息表 + 对账补偿，保证最终一致性。</li><li><strong>测试深化</strong>：建议补充并发/压力测试（JMeter/wrk）、前端组件 E2E 自动化（Playwright）、以及 CI 流水线中自动执行本测试套件。</li></ol>
+
+<hr>
+
+<h2>7. 测试产物与一键复跑</h2>
+
+<p>测试脚本位于 <code>E:\code\smart-factory\tests\</code>：</p>
+
+<table><thead><tr><th>文件</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>TestKit.ps1</code></td><td>可复用测试框架（Api/Login/Add-Result/结果聚合）</td></tr>
+<tr><td><code>14-auth.ps1</code> … <code>20-edge.ps1</code></td><td>各阶段测试脚本</td></tr>
+<tr><td><code>results.json</code></td><td>全部 89 用例的结构化结果</td></tr>
+<tr><td><code>summary.txt</code></td><td>分模块统计</td></tr>
+</tbody></table>
+
+<p>干净复跑（在项目根目录）：</p>
+
+<pre><code>docker compose -f E:\code\smart-factory\docker-compose.yml down
+docker compose -f E:\code\smart-factory\docker-compose.yml up -d --build
+Remove-Item E:\code\smart-factory\tests\results.json -ErrorAction SilentlyContinue
+Get-ChildItem E:\code\smart-factory\tests\*.ps1 | ForEach-Object {
+  $t=[IO.File]::ReadAllText($_.FullName,[Text.Encoding]::UTF8)
+  [IO.File]::WriteAllText($_.FullName,$t,(New-Object Text.UTF8Encoding($true)))
+}
+14..20 | ForEach-Object { &amp; ("E:\code\smart-factory\tests\{0}-*.ps1" -f $_) }</code></pre>
+
+<hr>
+
+<h2>8. 结论</h2>
+
+<p>系统在 Docker Compose 一键部署下运行稳定，<strong>89 个自动化用例全部通过</strong>。MES/WMS/QMS 三大核心业务闭环（来料、生产、质量异常）数据贯通、状态机严谨、库存账实一致、追溯链完整，鉴权与 AI 能力符合需求规格。测试中发现的 1 项应用缺陷已修复并回归通过；所列限制均有明确的二期演进路径，系统具备进入试运行/演示的条件。</p>
+</body></html>

@@ -1,0 +1,447 @@
+﻿[
+    {
+        "name":  "无Token访问物料接口被拦截",
+        "pass":  true,
+        "detail":  "code=1003 http=401"
+    },
+    {
+        "name":  "无Token访问WMS库存被拦截",
+        "pass":  true,
+        "detail":  "code=1003 http=401"
+    },
+    {
+        "name":  "伪造Token被拒绝",
+        "pass":  true,
+        "detail":  "code=1003 http=401"
+    },
+    {
+        "name":  "非法格式Token被拒绝",
+        "pass":  true,
+        "detail":  "code=1003 http=401"
+    },
+    {
+        "name":  "白名单AI健康检查可匿名",
+        "pass":  true,
+        "detail":  "http=200 status=UP"
+    },
+    {
+        "name":  "错误密码登录被拒",
+        "pass":  true,
+        "detail":  "code=1001 msg=用户名或密码错误"
+    },
+    {
+        "name":  "不存在用户登录被拒",
+        "pass":  true,
+        "detail":  "code=1001"
+    },
+    {
+        "name":  "admin正确登录并签发Token",
+        "pass":  true,
+        "detail":  "token长度=291"
+    },
+    {
+        "name":  "Token解析当前用户(/me)",
+        "pass":  true,
+        "detail":  "code=0 user=admin"
+    },
+    {
+        "name":  "角色账号 planner 登录",
+        "pass":  true,
+        "detail":  "ok=True"
+    },
+    {
+        "name":  "角色账号 warehouse 登录",
+        "pass":  true,
+        "detail":  "ok=True"
+    },
+    {
+        "name":  "角色账号 inspector 登录",
+        "pass":  true,
+        "detail":  "ok=True"
+    },
+    {
+        "name":  "角色账号 operator 登录",
+        "pass":  true,
+        "detail":  "ok=True"
+    },
+    {
+        "name":  "组织分页(种子8条)",
+        "pass":  true,
+        "detail":  "code=0 total=8"
+    },
+    {
+        "name":  "角色分页(种子5条)",
+        "pass":  true,
+        "detail":  "code=0 total=5"
+    },
+    {
+        "name":  "用户分页(种子5条)",
+        "pass":  true,
+        "detail":  "code=0 total=5"
+    },
+    {
+        "name":  "物料分页(种子6条)",
+        "pass":  true,
+        "detail":  "code=0 total=6"
+    },
+    {
+        "name":  "供应商分页(种子2条)",
+        "pass":  true,
+        "detail":  "code=0 total=2"
+    },
+    {
+        "name":  "工作中心分页(种子4条)",
+        "pass":  true,
+        "detail":  "code=0 total=4"
+    },
+    {
+        "name":  "BOM分页(种子1条)",
+        "pass":  true,
+        "detail":  "code=0 total=1"
+    },
+    {
+        "name":  "工艺路线分页(种子1条)",
+        "pass":  true,
+        "detail":  "code=0 total=1"
+    },
+    {
+        "name":  "BOM(5001)详情含5个明细",
+        "pass":  true,
+        "detail":  "code=0 items=5"
+    },
+    {
+        "name":  "工艺路线(6001)详情含4道工序",
+        "pass":  true,
+        "detail":  "code=0 operations=4"
+    },
+    {
+        "name":  "物料(1001)详情",
+        "pass":  true,
+        "detail":  "code=0 material=FG-100"
+    },
+    {
+        "name":  "物料关键字检索(RM)",
+        "pass":  true,
+        "detail":  "命中 4 条原材料"
+    },
+    {
+        "name":  "供应商关键字检索(SUP)",
+        "pass":  true,
+        "detail":  "命中 2 条"
+    },
+    {
+        "name":  "链路A-收货生成收货单",
+        "pass":  true,
+        "detail":  "code=0 no=RC20261010172757141"
+    },
+    {
+        "name":  "链路A-收货建待检库存100",
+        "pass":  true,
+        "detail":  "待检=100"
+    },
+    {
+        "name":  "链路A-自动建立IQC任务",
+        "pass":  true,
+        "detail":  "taskId=2108852034622701570"
+    },
+    {
+        "name":  "链路A-IQC录入并判定合格",
+        "pass":  true,
+        "detail":  "code=0"
+    },
+    {
+        "name":  "链路A-IQC任务状态QUALIFIED",
+        "pass":  true,
+        "detail":  "status=QUALIFIED"
+    },
+    {
+        "name":  "链路A-合格自动建上架任务",
+        "pass":  true,
+        "detail":  "taskId=2108852049091166210"
+    },
+    {
+        "name":  "链路A-推荐上架库位",
+        "pass":  true,
+        "detail":  "loc=A-01-01"
+    },
+    {
+        "name":  "链路A-执行上架",
+        "pass":  true,
+        "detail":  "code=0"
+    },
+    {
+        "name":  "链路A-目标库位合格库存100",
+        "pass":  true,
+        "detail":  "合格=100 loc=A-01-01"
+    },
+    {
+        "name":  "链路A-待检库存已清零",
+        "pass":  true,
+        "detail":  "待检残留=0"
+    },
+    {
+        "name":  "链路B-备料 RM-PCB-01 合格库存充足",
+        "pass":  true,
+        "detail":  "合格=150 需求=10"
+    },
+    {
+        "name":  "链路B-备料 RM-CASE-01 合格库存充足",
+        "pass":  true,
+        "detail":  "合格=50 需求=10"
+    },
+    {
+        "name":  "链路B-备料 RM-CHIP-01 合格库存充足",
+        "pass":  true,
+        "detail":  "合格=50 需求=10"
+    },
+    {
+        "name":  "链路B-备料 RM-SCR-01 合格库存充足",
+        "pass":  true,
+        "detail":  "合格=200 需求=40"
+    },
+    {
+        "name":  "链路B-备料 PK-BOX-01 合格库存充足",
+        "pass":  true,
+        "detail":  "合格=50 需求=10"
+    },
+    {
+        "name":  "链路B-创建工单",
+        "pass":  true,
+        "detail":  "wo=WO20261010173058290 status=CREATED"
+    },
+    {
+        "name":  "链路B-下达工单并生成领料波次",
+        "pass":  true,
+        "detail":  "wave=WV20261010173059562"
+    },
+    {
+        "name":  "链路B-执行拣货扣减合格库存",
+        "pass":  true,
+        "detail":  "wave状态=PICKED"
+    },
+    {
+        "name":  "链路B-线边交接回写投料与谱系",
+        "pass":  true,
+        "detail":  "status=PICKED"
+    },
+    {
+        "name":  "链路B-开工",
+        "pass":  true,
+        "detail":  "status=STARTED"
+    },
+    {
+        "name":  "链路B-报工累计合格10",
+        "pass":  true,
+        "detail":  "完成=10.0000"
+    },
+    {
+        "name":  "链路B-完工生成成品批次并入库",
+        "pass":  true,
+        "detail":  "成品批次=FG20261010173103670"
+    },
+    {
+        "name":  "链路B-OQC合格放行成品",
+        "pass":  true,
+        "detail":  "OQC=QUALIFIED"
+    },
+    {
+        "name":  "链路B-成品仓合格库存10",
+        "pass":  true,
+        "detail":  "成品合格=10"
+    },
+    {
+        "name":  "链路B-创建出库单",
+        "pass":  true,
+        "detail":  "ob=OB20261010173107351"
+    },
+    {
+        "name":  "链路B-确认发运",
+        "pass":  true,
+        "detail":  "状态=SHIPPED"
+    },
+    {
+        "name":  "链路B-发运后成品库存清零",
+        "pass":  true,
+        "detail":  "残留=0"
+    },
+    {
+        "name":  "链路B-反向追溯(成品→原料批次)",
+        "pass":  true,
+        "detail":  "子件记录=5"
+    },
+    {
+        "name":  "链路B-正向追溯接口可用",
+        "pass":  true,
+        "detail":  "code=0"
+    },
+    {
+        "name":  "链路C-提交含NG的IQC结果",
+        "pass":  true,
+        "detail":  "code=0"
+    },
+    {
+        "name":  "链路C-IQC任务判定UNQUALIFIED",
+        "pass":  true,
+        "detail":  "status=UNQUALIFIED"
+    },
+    {
+        "name":  "链路C-不合格批次自动冻结",
+        "pass":  true,
+        "detail":  "冻结=50"
+    },
+    {
+        "name":  "链路C-自动生成NCR(OPEN)",
+        "pass":  true,
+        "detail":  "ncr=NCR20261010173323327"
+    },
+    {
+        "name":  "链路C-MRB评审处置SCRAP",
+        "pass":  true,
+        "detail":  "code=0"
+    },
+    {
+        "name":  "链路C-NCR状态REVIEWED",
+        "pass":  true,
+        "detail":  "status=REVIEWED"
+    },
+    {
+        "name":  "链路C-WMS联动报废库存",
+        "pass":  true,
+        "detail":  "报废=50"
+    },
+    {
+        "name":  "链路C-MRB自动生成CAPA(OPEN)",
+        "pass":  true,
+        "detail":  "capa=CAPA20261010173325014"
+    },
+    {
+        "name":  "链路C-执行纠正预防措施",
+        "pass":  true,
+        "detail":  "status=IN_PROGRESS"
+    },
+    {
+        "name":  "链路C-CAPA验证通过并关闭",
+        "pass":  true,
+        "detail":  "CAPA=CLOSED"
+    },
+    {
+        "name":  "链路C-关联NCR联动关闭",
+        "pass":  true,
+        "detail":  "NCR=CLOSED"
+    },
+    {
+        "name":  "链路C-SPC控制图(20点/均值/UCL/LCL)",
+        "pass":  true,
+        "detail":  "mean=100.004 ucl=100.1804 lcl=99.8275"
+    },
+    {
+        "name":  "链路C-过程能力Cpk\u003e1.33",
+        "pass":  true,
+        "detail":  "cp=2.587 cpk=2.5644"
+    },
+    {
+        "name":  "AI-健康检查UP",
+        "pass":  true,
+        "detail":  "status=UP llm=False"
+    },
+    {
+        "name":  "AI-知识库已加载文档块",
+        "pass":  true,
+        "detail":  "documents=23"
+    },
+    {
+        "name":  "AI-未授权chat被拦截",
+        "pass":  true,
+        "detail":  "code=1003 http=401"
+    },
+    {
+        "name":  "AI-智能问答返回答案",
+        "pass":  true,
+        "detail":  "answer长度=545"
+    },
+    {
+        "name":  "AI-问答附带检索来源",
+        "pass":  true,
+        "detail":  "sources=4"
+    },
+    {
+        "name":  "AI-根因分析返回",
+        "pass":  true,
+        "detail":  "analysis长度=304"
+    },
+    {
+        "name":  "AI-根因给出人机料法环原因",
+        "pass":  true,
+        "detail":  "causes=3"
+    },
+    {
+        "name":  "AI-无APIKey自动Mock模式",
+        "pass":  true,
+        "detail":  "llm_enabled=False"
+    },
+    {
+        "name":  "AI-未命中问题兜底不臆造",
+        "pass":  true,
+        "detail":  "sources=0"
+    },
+    {
+        "name":  "边界-登录缺密码→1004",
+        "pass":  true,
+        "detail":  "code=1004"
+    },
+    {
+        "name":  "边界-查询不存在ID返回空(建议改404)",
+        "pass":  true,
+        "detail":  "code=0 data="
+    },
+    {
+        "name":  "边界-出库超扣库存→3011",
+        "pass":  true,
+        "detail":  "code=3011"
+    },
+    {
+        "name":  "边界-未下达即开工→1009",
+        "pass":  true,
+        "detail":  "code=1009"
+    },
+    {
+        "name":  "边界-未拣货即线边交接→1009",
+        "pass":  true,
+        "detail":  "code=1009"
+    },
+    {
+        "name":  "边界-无合格报工即完工→1009",
+        "pass":  true,
+        "detail":  "code=1009"
+    },
+    {
+        "name":  "边界-检验任务重复提交→1009",
+        "pass":  true,
+        "detail":  "code=1009 status=UNQUALIFIED"
+    },
+    {
+        "name":  "边界-NCR重复MRB→1009",
+        "pass":  true,
+        "detail":  "code=1009 status=CLOSED"
+    },
+    {
+        "name":  "边界-CAPA未执行/已关闭验证→1009",
+        "pass":  true,
+        "detail":  "code=1009"
+    },
+    {
+        "name":  "边界-上架任务重复执行→1009",
+        "pass":  true,
+        "detail":  "code=1009"
+    },
+    {
+        "name":  "边界-出库单重复发运→1009",
+        "pass":  true,
+        "detail":  "code=1009"
+    },
+    {
+        "name":  "边界-非法JSON报文→1004",
+        "pass":  true,
+        "detail":  "code=1004"
+    }
+]
